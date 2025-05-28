@@ -1,0 +1,161 @@
+<html>
+
+<head>
+  <title>台鐵票價查詢</title>
+  <link rel="stylesheet" href="/stylesheets/style.css">
+</head>
+
+<body>
+  <h1>台鐵票價查詢系統</h1>
+  <div style="display: flex; gap: 40px; align-items: flex-start;">
+    <div>
+      <h2>新增最新票價</h2>
+      <form id="insertForm">
+        <label>日期: <input type="date" name="effective_date" required></label><br>
+        <label>車種:
+          <select name="type_name" id="typeSelect" required>
+            <option value="">請選擇車種</option>
+            <option value="普通車">普通車</option>
+            <option value="柴油車">柴油車</option>
+            <option value="快車">快車</option>
+            <option value="對號快車">對號快車</option>
+            <option value="光華號">光華號</option>
+            <option value="通勤車">通勤車</option>
+            <option value="觀光號">觀光號</option>
+            <option value="宮光號">宮光號</option>
+            <option value="自強號">自強號</option>
+            <option value="EMU 行駛">EMU 行駛</option>
+            <option value="EMU 停駛">EMU 停駛</option>
+          </select>
+        </label><br>
+        <label>票價/每公里: <input type="number" name="price" step="0.01" required></label><br>
+        <label>備註: <input type="text" name="note"></label><br>
+        <button type="submit">送出</button>
+      </form>
+      <p id="resultMsg"></p>
+    </div>
+    <div>
+      <h2>查詢歷年票價</h2>
+      <form id="searchForm">
+        <label>日期: <input type="date" name="effective_date"></label><br>
+        <label>車種:
+          <select name="type_name" id="searchTypeSelect">
+            <option value="">全部車種</option>
+            <option value="普通車">普通車</option>
+            <option value="柴油車">柴油車</option>
+            <option value="快車">快車</option>
+            <option value="對號快車">對號快車</option>
+            <option value="光華號">光華號</option>
+            <option value="通勤車">通勤車</option>
+            <option value="觀光號">觀光號</option>
+            <option value="宮光號">宮光號</option>
+            <option value="自強號">自強號</option>
+            <option value="EMU 行駛">EMU 行駛</option>
+            <option value="EMU 停駛">EMU 停駛</option>
+          </select>
+        </label><br>
+        <button type="submit">查詢</button>
+      </form>
+      <p id="searchMsg"></p>
+    </div>
+  </div>
+  <div id="tables"></div>
+  <script>
+    document.getElementById('insertForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const form = e.target;
+      const data = {
+        effective_date: form.effective_date.value,
+        type_name: form.type_name.value,
+        price: form.price.value,
+        note: form.note.value
+      };
+      try {
+        const res = await fetch('/api/insert', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const text = await res.text();
+        // 新增資料成功時，回傳訊息改為「新增成功」
+        document.getElementById('resultMsg').textContent =
+          text.includes('資料新增成功') ? '新增成功' : text;
+      } catch (err) {
+        document.getElementById('resultMsg').textContent = '發送失敗';
+      }
+    });
+
+    // 取得所有資料並顯示在一個組合表格
+    async function loadAllTables() {
+      const res = await fetch('/api/all');
+      const data = await res.json();
+      const tablesDiv = document.getElementById('tables');
+      // 建立 id 對應表
+      const dateMap = {};
+      data.ticket_dates.forEach(row => { dateMap[row.date_id] = row; });
+      const typeMap = {};
+      data.train_types.forEach(row => { typeMap[row.type_id] = row; });
+      // 組合 ticket_prices
+      let html = '<h2>票價資料總表</h2>';
+      html += '<table border="1"><tr><th>price_id</th><th>日期</th><th>車種</th><th>票價/每公里</th><th>備註</th></tr>';
+      data.ticket_prices.forEach(row => {
+        const date = dateMap[row.date_id]?.effective_date || '';
+        const type = typeMap[row.type_id]?.type_name || '';
+        html += `<tr><td>${row.price_id}</td><td>${date}</td><td>${type}</td><td>${row.price}</td><td>${row.note ?? ''}</td></tr>`;
+      });
+      html += '</table>';
+      tablesDiv.innerHTML = html;
+    }
+    // 初始載入
+    loadAllTables();
+    // 送出表單後也重新載入
+    document.getElementById('insertForm').addEventListener('submit', function() {
+      setTimeout(loadAllTables, 500);
+    });
+
+    async function searchTable(query) {
+      // 取得所有資料
+      const res = await fetch('/api/all');
+      const data = await res.json();
+      // 建立 id 對應表
+      const dateMap = {};
+      data.ticket_dates.forEach(row => { dateMap[row.date_id] = row; });
+      const typeMap = {};
+      data.train_types.forEach(row => { typeMap[row.type_id] = row; });
+      // 組合 ticket_prices
+      let rows = data.ticket_prices.map(row => ({
+        price_id: row.price_id,
+        date: dateMap[row.date_id]?.effective_date || '',
+        type: typeMap[row.type_id]?.type_name || '',
+        price: row.price,
+        note: row.note ?? ''
+      }));
+      // 過濾查詢條件
+      // 僅當有輸入日期時才過濾日期
+      if (query.effective_date && query.effective_date !== "") rows = rows.filter(r => r.date === query.effective_date);
+      if (query.type_name) rows = rows.filter(r => r.type === query.type_name);
+      // 顯示表格
+      let html = '<h2>查詢結果</h2>';
+      html += '<table border="1"><tr><th>price_id</th><th>日期</th><th>車種</th><th>票價/每公里</th><th>備註</th></tr>';
+      rows.forEach(row => {
+        html += `<tr><td>${row.price_id}</td><td>${row.date}</td><td>${row.type}</td><td>${row.price}</td><td>${row.note}</td></tr>`;
+      });
+      html += '</table>';
+      document.getElementById('tables').innerHTML = html;
+      document.getElementById('searchMsg').textContent = rows.length ? '' : '查無資料';
+    }
+    // 查詢表單事件
+    document.getElementById('searchForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const form = e.target;
+      searchTable({
+        effective_date: form.effective_date.value,
+        type_name: form.type_name.value
+      });
+    });
+    // 預設顯示全部
+    searchTable({});
+  </script>
+</body>
+
+</html>
