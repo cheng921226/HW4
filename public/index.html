@@ -97,11 +97,11 @@
       data.train_types.forEach(row => { typeMap[row.type_id] = row; });
       // 組合 ticket_prices
       let html = '<h2>票價資料總表</h2>';
-      html += '<table border="1"><tr><th>price_id</th><th>日期</th><th>車種</th><th>票價/每公里</th><th>備註</th></tr>';
+      html += '<table border="1"><tr><th>price_id</th><th>日期</th><th>車種</th><th>票價/每公里</th><th>備註</th><th>操作</th></tr>';
       data.ticket_prices.forEach(row => {
         const date = dateMap[row.date_id]?.effective_date || '';
         const type = typeMap[row.type_id]?.type_name || '';
-        html += `<tr><td>${row.price_id}</td><td>${date}</td><td>${type}</td><td>${row.price}</td><td>${row.note ?? ''}</td></tr>`;
+        html += `<tr><td>${row.price_id}</td><td>${date}</td><td>${type}</td><td>${row.price}</td><td>${row.note ?? ''}</td><td><button onclick="deleteRow(${row.price_id})">刪除</button></td></tr>`;
       });
       html += '</table>';
       tablesDiv.innerHTML = html;
@@ -112,6 +112,21 @@
     document.getElementById('insertForm').addEventListener('submit', function() {
       setTimeout(loadAllTables, 500);
     });
+
+    // 刪除資料
+    async function deleteRow(price_id) {
+      if (!confirm('確定要刪除這筆資料嗎？')) return;
+      const res = await fetch('/api/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ price_id })
+      });
+      if (res.ok) {
+        loadAllTables();
+      } else {
+        alert('刪除失敗');
+      }
+    }
 
     async function searchTable(query, showMsg = true) {
       // 取得所有資料
@@ -135,9 +150,9 @@
       if (query.type_name) rows = rows.filter(r => r.type === query.type_name);
       // 顯示表格
       let html = '<h2>查詢結果</h2>';
-      html += '<table border="1"><tr><th>price_id</th><th>日期</th><th>車種</th><th>票價/每公里</th><th>備註</th></tr>';
+      html += '<table border="1"><tr><th>price_id</th><th>日期</th><th>車種</th><th>票價/每公里</th><th>備註</th><th>操作</th></tr>';
       rows.forEach(row => {
-        html += `<tr><td>${row.price_id}</td><td>${row.date}</td><td>${row.type}</td><td>${row.price}</td><td>${row.note}</td></tr>`;
+        html += `<tr><td>${row.price_id}</td><td>${row.date}</td><td>${row.type}</td><td>${row.price}</td><td>${row.note}</td><td><button onclick="deleteRow(${row.price_id})">刪除</button></td></tr>`;
       });
       html += '</table>';
       document.getElementById('tables').innerHTML = html;
