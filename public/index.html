@@ -38,7 +38,10 @@
       <div style="flex:1;min-width:260px;">
         <h2>查詢歷年票價</h2>
         <form id="searchForm">
-          <label>日期: <input type="date" name="effective_date"></label>
+          <label>日期區間:
+            <input type="date" name="start_date"> ~
+            <input type="date" name="end_date">
+          </label>
           <label>車種:
             <select name="type_name" id="searchTypeSelect">
               <option value="">全部車種</option>
@@ -98,17 +101,17 @@
       data.train_types.forEach(row => { typeMap[row.type_id] = row; });
       // 組合 ticket_prices
       let html = '<h2 id="tableTitle">票價歷史紀錄</h2>';
-      html += '<table border="1"><tr><th>編號</th><th>日期</th><th>車種</th><th>票價/每公里</th><th>備註</th><th>操作</th></tr>';
+      html += '<table border="1"><tr><th>日期</th><th>車種</th><th>票價/每公里</th><th>備註</th><th>操作</th></tr>';
       data.ticket_prices.forEach(row => {
         const date = dateMap[row.date_id]?.effective_date || '';
         const type = typeMap[row.type_id]?.type_name || '';
-        html += `<tr><td>${row.price_id}</td><td>${date}</td><td>${type}</td><td>${row.price}</td><td>${row.note ?? ''}</td><td><button onclick="deleteRow(${row.price_id})">刪除</button></td></tr>`;
+        html += `<tr><td>${date}</td><td>${type}</td><td>${row.price}</td><td>${row.note ?? ''}</td><td><button onclick="deleteRow(${row.price_id})">刪除</button></td></tr>`;
       });
       html += '</table>';
       tablesDiv.innerHTML = html;
     }
 
-    async function renderTrendChart() {
+    async function renderTrendChart(filterTypeName = null, startDate = null, endDate = null) {
       const res = await fetch('/api/all');
       const data = await res.json();
       // 整理資料：以日期為 X 軸，各車種為線
@@ -117,9 +120,14 @@
       const typeMap = {};
       data.train_types.forEach(row => { typeMap[row.type_id] = row.type_name; });
       // 取得所有日期並排序
-      const allDates = Array.from(new Set(data.ticket_prices.map(row => dateMap[row.date_id]))).sort();
+      let allDates = Array.from(new Set(data.ticket_prices.map(row => dateMap[row.date_id]))).sort();
+      if (startDate) allDates = allDates.filter(date => date >= startDate);
+      if (endDate) allDates = allDates.filter(date => date <= endDate);
       // 取得所有車種
-      const allTypes = Array.from(new Set(data.train_types.map(row => row.type_name)));
+      let allTypes = Array.from(new Set(data.train_types.map(row => row.type_name)));
+      if (filterTypeName) {
+        allTypes = allTypes.filter(type => type === filterTypeName);
+      }
       // 準備各車種的價格資料
       const datasets = allTypes.map((typeName, idx) => {
         // 依日期順序找出該車種在每個日期的價格
@@ -153,7 +161,7 @@
           responsive: true,
           plugins: {
             legend: { position: 'top' },
-            title: { display: true, text: '各車種票價歷史走向' }
+            title: { display: true, text: filterTypeName ? `${filterTypeName} 票價歷史走向` : '各車種票價歷史走向' }
           },
           scales: {
             y: { title: { display: true, text: '票價/每公里' } },
@@ -205,13 +213,16 @@
         note: row.note ?? ''
       }));
       // 過濾查詢條件
-      if (query.effective_date && query.effective_date !== "") rows = rows.filter(r => r.date === query.effective_date);
+      if (query.start_date && query.start_date !== "") rows = rows.filter(r => r.date >= query.start_date);
+      if (query.end_date && query.end_date !== "") rows = rows.filter(r => r.date <= query.end_date);
       if (query.type_name) rows = rows.filter(r => r.type === query.type_name);
-      // 顯示表格
+      // 依日期倒序排列（新→舊）
+      rows.sort((a, b) => b.date.localeCompare(a.date));
+      // 顯示表格（移除編號欄位）
       let html = `<h2 id="tableTitle">${showMsg ? '查詢結果' : '票價歷史紀錄'}</h2>`;
-      html += '<table border="1"><tr><th>編號</th><th>日期</th><th>車種</th><th>票價/每公里</th><th>備註</th><th>操作</th></tr>';
+      html += '<table border="1"><tr><th>日期</th><th>車種</th><th>票價/每公里</th><th>備註</th><th>操作</th></tr>';
       rows.forEach(row => {
-        html += `<tr><td>${row.price_id}</td><td>${row.date}</td><td>${row.type}</td><td>${row.price}</td><td>${row.note}</td><td><button onclick="deleteRow(${row.price_id})">刪除</button></td></tr>`;
+        html += `<tr><td>${row.date}</td><td>${row.type}</td><td>${row.price}</td><td>${row.note}</td><td><button onclick="deleteRow(${row.price_id})">刪除</button></td></tr>`;
       });
       html += '</table>';
       document.getElementById('tables').innerHTML = html;
@@ -221,12 +232,16 @@
       e.preventDefault();
       const form = e.target;
       searchTable({
-        effective_date: form.effective_date.value,
+        start_date: form.start_date.value,
+        end_date: form.end_date.value,
         type_name: form.type_name.value
       }, true); // 這裡 showMsg 要設為 true
+      // 查詢時也更新圖表
+      renderTrendChart(form.type_name.value || null, form.start_date.value, form.end_date.value);
     });
     // 預設顯示全部（不顯示查詢訊息）
     searchTable({}, false);
+    renderTrendChart();
   </script>
 </body>
 
