@@ -113,7 +113,7 @@
       setTimeout(loadAllTables, 500);
     });
 
-    async function searchTable(query) {
+    async function searchTable(query, showMsg = true) {
       // 取得所有資料
       const res = await fetch('/api/all');
       const data = await res.json();
@@ -131,7 +131,6 @@
         note: row.note ?? ''
       }));
       // 過濾查詢條件
-      // 僅當有輸入日期時才過濾日期
       if (query.effective_date && query.effective_date !== "") rows = rows.filter(r => r.date === query.effective_date);
       if (query.type_name) rows = rows.filter(r => r.type === query.type_name);
       // 顯示表格
@@ -142,19 +141,25 @@
       });
       html += '</table>';
       document.getElementById('tables').innerHTML = html;
-      document.getElementById('searchMsg').textContent = rows.length ? '' : '查無資料';
+      if (showMsg) {
+        document.getElementById('searchMsg').textContent = rows.length ? '查詢成功' : '查無資料';
+      } else {
+        document.getElementById('searchMsg').textContent = '';
+      }
     }
     // 查詢表單事件
     document.getElementById('searchForm').addEventListener('submit', function(e) {
       e.preventDefault();
       const form = e.target;
+      // 查詢時清空新增訊息
+      document.getElementById('resultMsg').textContent = '';
       searchTable({
         effective_date: form.effective_date.value,
         type_name: form.type_name.value
-      });
+      }, true);
     });
-    // 預設顯示全部
-    searchTable({});
+    // 預設顯示全部（不顯示查詢訊息）
+    searchTable({}, false);
   </script>
 </body>
 

@@ -27,36 +27,6 @@ const db = new sqlite3.Database(dbPath, (err) => {
         console.error('建立 ticket_dates table 失敗:', err.message);
       } else {
         console.log('已確認 ticket_dates table 存在');
-        // 新增指定資料
-        const insertSQL = `INSERT OR IGNORE INTO ticket_dates (date_id, effective_date, note) VALUES (?, ?, ?)`;
-        const data = [
-          [1, "1960-01-01", null],
-          [2, "1961-06-18", null],
-          [3, "1961-10-18", null],
-          [4, "1963-08-01", null],
-          [5, "1966-10-31", null],
-          [6, "1967-08-15", null],
-          [7, "1970-02-03", null],
-          [8, "1974-01-27", null],
-          [9, "1978-08-15", null],
-          [10, "1979-05-03", null],
-          [11, "1980-07-16", null],
-          [12, "1980-10-01", null],
-          [13, "1981-02-15", null],
-          [14, "1983-03-21", null],
-          [15, "1984-04-18", null],
-          [16, "1986-05-01", null],
-          [17, "1988-09-01", null],
-          [18, "1990-11-24", null],
-          [19, "1995-09-16", null]
-        ];
-        data.forEach(row => {
-          db.run(insertSQL, row, (err) => {
-            if (err) {
-              console.error('插入 ticket_dates 資料失敗:', err.message);
-            }
-          });
-        });
         console.log('已插入 ticket_dates 初始資料');
       }
     });
