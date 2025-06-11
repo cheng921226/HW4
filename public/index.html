@@ -93,9 +93,11 @@
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(data)
             });
+            alert('資料新增成功');
           }
+        } else {
+          alert('資料新增成功');
         }
-        // 不顯示新增成功訊息
       } catch (err) {
         // 不顯示發送失敗訊息
       }
@@ -321,6 +323,7 @@
       }, true); // 這裡 showMsg 要設為 true
       // 查詢時也更新圖表
       renderTrendChart(form.type_name.value || null, form.start_date.value, form.end_date.value);
+      alert('資料查詢成功');
     });
     // 預設顯示全部（不顯示查詢訊息）
     searchTable({}, false);
