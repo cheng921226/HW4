@@ -56,7 +56,7 @@ app.get('/api/all', (req, res) => {
 
 // POST /api/insert 路由，插入一組資料到三個資料表，回傳純文字訊息
 app.post('/api/insert', (req, res) => {
-  const { effective_date, type_name, price, note } = req.body;
+  const { effective_date, type_name, price, note, forceUpdate } = req.body;
   if (!effective_date || !type_name || !price) {
     return res.status(400).send('缺少必要參數');
   }
@@ -82,10 +82,26 @@ app.post('/api/insert', (req, res) => {
         };
         const type_id = typeRow ? typeRow.type_id : null;
         const handleTypeId = (type_id) => {
-          // 3. 新增 ticket_prices，note 只寫入這裡
-          db.run('INSERT INTO ticket_prices (date_id, type_id, price, note) VALUES (?, ?, ?, ?)', [date_id, type_id, price, note || null], function(err) {
-            if (err) return res.status(500).send('新增票價失敗');
-            res.send('資料新增成功');
+          // 3. 先檢查 ticket_prices 是否已存在相同 date_id 與 type_id
+          db.get('SELECT price_id FROM ticket_prices WHERE date_id = ? AND type_id = ?', [date_id, type_id], (err, priceRow) => {
+            if (err) return res.status(500).send('查詢票價失敗');
+            if (priceRow && !forceUpdate) {
+              // 已存在且未要求覆蓋，回傳提示
+              return res.json({ exists: true, message: '相同日期與車種的票價已存在，是否要覆蓋？' });
+            }
+            if (priceRow && forceUpdate) {
+              // 覆蓋舊資料
+              db.run('UPDATE ticket_prices SET price = ?, note = ? WHERE price_id = ?', [price, note || null, priceRow.price_id], function(err) {
+                if (err) return res.status(500).send('更新票價失敗');
+                res.send('資料已更新');
+              });
+            } else if (!priceRow) {
+              // 新增票價
+              db.run('INSERT INTO ticket_prices (date_id, type_id, price, note) VALUES (?, ?, ?, ?)', [date_id, type_id, price, note || null], function(err) {
+                if (err) return res.status(500).send('新增票價失敗');
+                res.send('資料新增成功');
+              });
+            }
           });
         };
         if (type_id) handleTypeId(type_id);

@@ -78,11 +78,23 @@
         note: form.note.value
       };
       try {
-        await fetch('/api/insert', {
+        let res = await fetch('/api/insert', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
         });
+        let result = await res.json().catch(() => null);
+        if (result && result.exists) {
+          if (confirm(result.message || '資料已存在，是否要覆蓋？')) {
+            // 用戶同意覆蓋，帶 forceUpdate 再送一次
+            data.forceUpdate = true;
+            await fetch('/api/insert', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(data)
+            });
+          }
+        }
         // 不顯示新增成功訊息
       } catch (err) {
         // 不顯示發送失敗訊息
